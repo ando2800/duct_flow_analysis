@@ -35,6 +35,18 @@ def plot_trajectory(df, outputdir):
     plt.tight_layout()
     plt.savefig(os.path.join(outputdir, "trajectory_IvsSsum.pdf"), bbox_inches='tight', format='pdf')
 
+def plot_Si(df, outputdir):
+    plt.figure()
+    plt.plot(df["time_nondim"], df["Se"], label="Se", color='blue')
+    plt.plot(df["time_nondim"], df["Sn"], label="Sn", color='orange')
+    plt.plot(df["time_nondim"], df["Ss"], label="Ss", color='green')
+    plt.plot(df["time_nondim"], df["Sw"], label="Sw", color='red')
+    plt.xlim(0.0, max(df["time_nondim"]))
+    plt.ylim(0.0, max(df["Se"].max(), df["Sn"].max(), df["Ss"].max(), df["Sw"].max()) * 1.01)
+    plt.grid(False)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(outputdir, "Si_tsd.pdf"), bbox_inches='tight', format='pdf')
 
 if __name__ == "__main__":
     h5file = "./data/processed/statistics_tsd.h5"
@@ -46,11 +58,16 @@ if __name__ == "__main__":
     df["I"] = pd.read_hdf(h5file, "/new_statistics/Indicator")
     df["Ssum"] = pd.read_hdf(h5file, "/new_statistics/Ssum")
     df["time_nondim"] = pd.read_hdf(h5file, "/time_nondim")
+    df["Se"] = pd.read_hdf(h5file, "/statistics/Se")
+    df["Sn"] = pd.read_hdf(h5file, "/statistics/Sn")
+    df["Ss"] = pd.read_hdf(h5file, "/statistics/Ss")
+    df["Sw"] = pd.read_hdf(h5file, "/statistics/Sw")
 
     # ==== Plotting ==== #
-    plot_I(df, outputdir)
-    plot_Ssum(df, outputdir)
-    plot_trajectory(df, outputdir)
+    #plot_I(df, outputdir)
+    #plot_Ssum(df, outputdir)
+    plot_Si(df, outputdir)
+    #plot_trajectory(df, outputdir)
     print("[MESSAGE] Selected plots have been saved to:", outputdir)
 
 
