@@ -1,80 +1,84 @@
-# ダクト流れログ抽出パイプライン（Duct Flow Log Extraction Pipeline）
+# Duct Flow Log Data Processing and Visualization
 
-このドキュメントは、ダクト流れシミュレーションから生成されたログファイルを解析し、HDF5形式で統計量を保存するためのコードに関する実装内容・想定・将来的な改善点についてまとめたものです。
+本プロジェクトは、流体計算コードから得られる `screanoutput*-*` ログファイルを解析・可視化するツール群です。以下の3つのスクリプトに分かれています。
 
----
+## ファイル構成
 
-## 概要
+- `run.py`  
+  各エピソード（例: ep001）に対応した複数の `screanoutputX-Y` ログを処理して、HDF5 ファイルに変換します。
 
-このパイプラインは、ダクト流れの数値計算によって出力されるログファイル（例：`screanoutput1-1`, `screanoutput1-2`）から重要な定数や統計量（`I`, `Ssum`など）を抽出し、各エピソード（例：ep001）ごとに HDF5 ファイルに保存します。
+- `ductlogRL2hdf5.py`  
+  上記 `run.py` から呼び出されるライブラリスクリプトで、ログ解析とHDF5保存を担当します。
 
----
+- テスト用である。実際に使うときには`./lib/`の中にある`log2hdf5.py`をインポートしてください。
 
-## 主な構成
+- `plot.py`  
+  `run.py` で出力された HDF5 データを時系列的に結合して、必要な可視化を行います。プロット対象は選択可能。
 
-### 1. `log_extract.py`
+## 実行方法
 
-* 含まれる関数：
+### 1. HDF5ファイルの生成（ログ解析）
 
-  * `extract_constants_from_log`: `CMASSFLOW`, `h`, `nstep`, `nhist`, `dt`, `Re` などの物理定数を抽出
-  * `extract_statistics_from_log`: `ENER` 行から `Sn`, `Sw`, `Ss`, `Se` を抽出
-  * `convert_log_to_hdf5`: 定数と統計量を組み合わせてHDF5へ保存するエントリ関数
+```bash
+python run.py
+```
 
-### 2. `run_extract.py`
+- `run.py` の中でエピソード番号や処理対象ディレクトリを手動指定できます。
+- `./log/screanoutputX-Y` に対応し、`./data/processed/epXXX/` 以下にHDF5が出力されます。
+- 出力ファイル名は `screanoutputX-Y.h5` に対応します。
 
-* 実行用スクリプト
+### 2. プロットの実行
 
-  * 対象のエピソード番号やログファイルのパスを指定
-  * 対応するログファイル（例：`screanoutput1-*`）を自動的に検出
-  * 出力先 `data/processed/epXXX/` を自動生成
-  * 各ログファイルを `.h5` に変換し保存
+```bash
+python plot.py
+```
 
----
+- 対象エピソード・データ範囲は `plot.py` 内の `main()` で指定。
+- プロット対象は以下から選択可能：
+  - Indicator (I)
+  - Ssum
+  - Trajectory (I vs Ssum)
 
-## 出力仕様
+- 出力先は `./results/combined_plots_epXXX/`
 
-* HDF5構造：
+## 注意点
 
-  * `/statistics/Sn`, `/Sw`, `/Ss`, `/Se`
-  * `/new_statistics/Indicator`, `/new_statistics/Ssum`
-  * `/time_nondim`
-  * `/config/CMASSFLOW`, `/dt`, `/Re` など定数
+- 各 `screanoutputX-Y` に含まれる `time_nondim` は **0始まりではなく、dt始まり** です。
+- 各ファイルの時系列は連続しているため、結合時には末尾の時間ステップを前のファイルの末尾に加算することで連続時間を再構成しています。
+- `time_nondim` の補正には **時間ステップ幅 dt の使用は不要** です。
 
----
+## 開発・動作要件
 
-## 動作要件
+- Python 3.8 以降推奨
+- 依存ライブラリ：
+  - pandas
+  - matplotlib
+  - pathlib（標準ライブラリ）
+  - os（標準ライブラリ）
 
-* Python バージョン：3.8以上
-* 必須ライブラリ：
+## 今後の改良点（例）
 
-  * `pandas >= 1.1`
-  * `numpy >= 1.19`
-* 注意：
+- 引数によるエピソード・範囲指定（`argparse` 対応）
+- ログファイルの自動検出と検証
+- プロットの自動レイアウト調整
+- HDF5へのメタデータ記録（dtやReなど）
 
-  * `grep` および `awk` を `subprocess` 経由で呼び出すため、**Unix系シェル環境（macOS, Linux）専用**。Windows では非対応（WSL推奨）
+## 出力例
 
----
+```
+data/
+  processed/
+    ep001/
+      screanoutput1-1.h5
+      screanoutput1-2.h5
+results/
+  ep1seg1-2/
+    I_tsd.pdf
+    Ssum_tsd.pdf
+    trajectory_IvsSsum.pdf
+```
 
-## 想定・前提
+## 補足
 
-* 入力ログファイル名は `screanoutput{episode}-{index}` の形式であること
-* ディレクトリ構成は `data/raw/`（入力）、`data/processed/epXXX/`（出力）
-* ログ形式は一定である（定数や`ENER`行の書式が変わらない）
-* 各定数（例：CMASSFLOW, dt）はログ内に1回だけ登場する
-
----
-
-## 今後の改良候補
-
-* [ ] 複数エピソードを一括処理できるようにする
-* [ ] `ENER` 行が欠損していた場合のエラーハンドリング強化
-* [ ] HDF5保存時の圧縮オプション（例：`zlib`）対応
-* [ ] 他の物理量（例：DIVERGENCE, SLIP-VELOCITY）への拡張
-* [ ] コマンドラインツール化（`argparse`導入）
-* [ ] ログ解析のロバスト性強化（正規表現での柔軟抽出など）
-
----
-
-## ライセンス・利用について
-
-このコードは研究用途および内部解析を目的として設計されています。再利用・論文等での利用時には出典を明記してください。
+- 処理対象のログはすべて `./log/` 以下に格納しておく必要があります。
+- 1つのエピソード内のファイルは `screanoutputX-Y` 形式で連番としてください。
