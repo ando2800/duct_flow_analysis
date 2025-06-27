@@ -84,8 +84,8 @@ if __name__ == "__main__":
 
     hdf5_dir = "./data/processed"
     episode = 1
-    start_idx = 54
-    end_idx = 66
+    start_idx = 50
+    end_idx = 200
     output_dir = f"./results/ep{episode:03d}seg{start_idx}-{end_idx}"
 
     df = prepare_dataframe(hdf5_dir, episode, start_idx, end_idx)
